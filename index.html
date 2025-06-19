@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebXR Plane Detection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+
+        #info {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .filter-section {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .filter-section label {
+            display: inline-block;
+            width: 180px;
+            margin-right: 10px;
+        }
+
+        .filter-section input {
+            width: 80px;
+            padding: 5px;
+            margin-right: 10px;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .plane-info {
+            background: #e9ecef;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="info">
+        <h1>WebXR Plane Detection</h1>
+        <p>Click the button to start AR session</p>
+        <button id="startAR">Start AR</button>
+
+        <div class="filter-section">
+            <h3>Plane Filters</h3>
+            
+            <div>
+                <label>Min Width (m) = X-axis:</label>
+                <input type="number" id="minWidth" value="0.1" step="0.1" min="0">
+            </div>
+            
+            <div style="margin-top: 10px;">
+                <label>Min Height (m) = Y-axis:</label>
+                <input type="number" id="minHeight" value="0.1" step="0.1" min="0">
+            </div>
+            
+            <div style="margin-top: 10px;">
+                <label>Min Length (m) = Z-axis:</label>
+                <input type="number" id="minLength" value="0.1" step="0.1" min="0">
+            </div>
+            
+            <div style="margin-top: 10px;">
+                <label>Plane Type:</label>
+                <select id="planeType">
+                    <option value="all">All Types</option>
+                    <option value="horizontal">Horizontal</option>
+                    <option value="vertical">Vertical</option>
+                </select>
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <button id="applyFilters">Apply Filters</button>
+            </div>
+        </div>
+
+        <div id="status"></div>
+    </div>
+</body>
+
+<script>
+    let session = null;
+    let referenceSpace = null;
+    const planes = []; // Array to store all planes
+    const filteredPlanes = []; // Array to store filtered planes
+
+    // Filter parameters
+    let filterParams = {
+        minWidth: 0.1,
+        minHeight: 0.1,
+        minLength: 0.1,
+        planeType: 'all'
+    };
+
+    // Check WebXR AR support
+    async function checkARSupport() {
+        if (!navigator.xr) {
+            updateStatus('WebXR not supported');
+            return false;
+        }
+
+        const supported = await navigator.xr.isSessionSupported('immersive-ar');
+        if (supported) {
+            updateStatus('AR supported');
+            return true;
+        } else {
+            updateStatus('AR not supported');
+            return false;
+        }
+    }
+
+    // Start AR session
+    async function startARSession() {
+        try {
+            session = await navigator.xr.requestSession('immersive-ar', {
+                requiredFeatures: ['plane-detection'],
+                optionalFeatures: ['dom-overlay'],
+                domOverlay: { root: document.getElementById('info') }
+            });
+
+            updateStatus('AR session started');
+
+            // Get reference space
+            referenceSpace = await session.requestReferenceSpace('local');
+
+            // Set frame handler
+            session.requestAnimationFrame(onXRFrame);
+
+            // Set session end handler
+            session.addEventListener('end', onSessionEnd);
+
+        } catch (err) {
+            console.error('Error starting AR session:', err);
+            updateStatus('Error starting AR session: ' + err.message);
+        }
+    }
+
+    // Function to get plane dimensions
+    function getPlaneDimensions(plane) {
+        if (plane.extent) {
+            return {
+                width: plane.extent.width,
+                height: plane.extent.height,
+                length: plane.extent.length
+            };
+        }
+        return { width: 0, height: 0, length: 0 };
+    }
+
+    // Function to filter planes
+    function filterPlanes() {
+        filteredPlanes.length = 0; // Clear filtered planes array
+        
+        planes.forEach(plane => {
+            const dimensions = getPlaneDimensions(plane);
+            
+            // Check minimum dimensions
+            const widthOk = dimensions.width >= filterParams.minWidth;
+            const heightOk = dimensions.height >= filterParams.minHeight;
+            const lengthOk = dimensions.length >= filterParams.minLength;
+            
+            // Check plane type
+            const typeOk = filterParams.planeType === 'all' || 
+                          plane.type === filterParams.planeType;
+            
+            // If all conditions are met, add to filtered array
+            if (widthOk && heightOk && lengthOk && typeOk) {
+                filteredPlanes.push(plane);
+            }
+        });
+        
+        updatePlaneInfo();
+    }
+
+    // Frame handler in AR session
+    function onXRFrame(time, frame) {
+        // Get all detected planes
+        const planesData = frame.getPlanes();
+
+        // Process new planes
+        planesData.forEach(plane => {
+            // Check if this plane already exists in our array
+            const existingPlaneIndex = planes.findIndex(p => p.id === plane.id);
+
+            if (existingPlaneIndex === -1) {
+                // New plane - add to array
+                const newPlane = {
+                    id: plane.id,
+                    type: plane.type,
+                    position: plane.position,
+                    orientation: plane.orientation,
+                    extent: plane.extent,
+                    lastUpdated: time
+                };
+
+                planes.push(newPlane);
+                console.log(`New plane detected: ID=${plane.id}, type=${plane.type}`);
+
+                // Apply filters to new plane
+                filterPlanes();
+            } else {
+                // Update existing plane
+                planes[existingPlaneIndex] = {
+                    id: plane.id,
+                    type: plane.type,
+                    position: plane.position,
+                    orientation: plane.orientation,
+                    extent: plane.extent,
+                    lastUpdated: time
+                };
+
+                // Reapply filters
+                filterPlanes();
+            }
+        });
+
+        // Remove planes that are no longer visible (older than 1 second)
+        const currentTime = time;
+        for (let i = planes.length - 1; i >= 0; i--) {
+            if (currentTime - planes[i].lastUpdated > 1000) { // 1 second
+                console.log(`Plane removed (not visible): ID=${planes[i].id}`);
+                planes.splice(i, 1);
+                filterPlanes(); // Reapply filters
+            }
+        }
+
+        // Continue animation loop
+        session.requestAnimationFrame(onXRFrame);
+    }
+
+    // AR session end handler
+    function onSessionEnd() {
+        console.log("AR session ended");
+        updateStatus('AR session ended');
+        session = null;
+        referenceSpace = null;
+        planes.length = 0; // Clear planes array
+        filteredPlanes.length = 0; // Clear filtered planes
+        updatePlaneInfo();
+    }
+
+    // Update plane information
+    function updatePlaneInfo() {
+        const statusDiv = document.getElementById('status');
+        let info = `<h3>Total planes: ${planes.length}</h3>`;
+        info += `<h3>Filtered planes: ${filteredPlanes.length}</h3>`;
+
+        if (filteredPlanes.length > 0) {
+            info += '<h4>Filtered planes:</h4>';
+            filteredPlanes.forEach((plane, index) => {
+                const dimensions = getPlaneDimensions(plane);
+                info += `<div class="plane-info">
+                    <strong>Plane ${index + 1}:</strong><br>
+                    ID: ${plane.id}<br>
+                    Type: ${plane.type}<br>
+                    Dimensions: ${dimensions.width.toFixed(2)}m × ${dimensions.height.toFixed(2)}m × ${dimensions.length.toFixed(2)}m<br>
+                    Position: (${plane.position.x.toFixed(2)}, ${plane.position.y.toFixed(2)}, ${plane.position.z.toFixed(2)})
+                </div>`;
+            });
+        }
+
+        statusDiv.innerHTML = info;
+    }
+
+    // Update status
+    function updateStatus(message) {
+        const statusDiv = document.getElementById('status');
+        statusDiv.innerHTML = `<p>${message}</p>`;
+    }
+
+    // Apply filters
+    function applyFilters() {
+        filterParams.minWidth = parseFloat(document.getElementById('minWidth').value);
+        filterParams.minHeight = parseFloat(document.getElementById('minHeight').value);
+        filterParams.minLength = parseFloat(document.getElementById('minLength').value);
+        filterParams.planeType = document.getElementById('planeType').value;
+
+        console.log('Filters applied:', filterParams);
+        filterPlanes();
+    }
+
+    // Initialization
+    document.addEventListener('DOMContentLoaded', async () => {
+        const arSupported = await checkARSupport();
+
+        if (arSupported) {
+            document.getElementById('startAR').addEventListener('click', startARSession);
+            document.getElementById('applyFilters').addEventListener('click', applyFilters);
+        }
+    });
+</script>
+
+</html>
