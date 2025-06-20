@@ -114,10 +114,6 @@
             document.getElementById('status').textContent = `Status: ${text}`;
         }
 
-        function addToStatus(text) {
-            document.getElementById('status').textContent = `Status: ${text}`;
-        }
-
         function filterPlanes() {
             const minWidth = parseFloat(document.getElementById('min-width').value);
             const minHeight = parseFloat(document.getElementById('min-height').value);
@@ -141,72 +137,72 @@
         document.getElementById('min-length').addEventListener('input', filterPlanes);
 
         document.getElementById('start-ar').addEventListener('click', async () => {
-            addToStatus("Start AR button clicked");
+            updateStatus("Start AR button clicked");
             
             if (!navigator.xr) {
-                addToStatus("WebXR not supported");
+                updateStatus("WebXR not supported");
                 return;
             }
 
-            addToStatus("Checking immersive-ar support...");
+            updateStatus("Checking immersive-ar support...");
             const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
-            addToStatus(`immersive-ar supported: ${isSupported}`);
+            updateStatus(`immersive-ar supported: ${isSupported}`);
             
             if (!isSupported) {
-                addToStatus("immersive-ar not supported");
+                updateStatus("immersive-ar not supported");
                 return;
             }
 
             try {
-                addToStatus("Requesting AR session...");
+                updateStatus("Requesting AR session...");
 
                 xrSession = await navigator.xr.requestSession('immersive-ar', {
                     requiredFeatures: ['local'],
                     optionalFeatures: ['plane-detection', 'dom-overlay']
                 });
 
-                addToStatus("AR session created successfully");
+                updateStatus("AR session created successfully");
 
                 const canvas = document.createElement('canvas');
                 document.body.appendChild(canvas);
                 gl = canvas.getContext('webgl', { xrCompatible: true });
 
-                addToStatus("WebGL context created");
+                updateStatus("WebGL context created");
 
                 await gl.makeXRCompatible();
-                addToStatus("WebGL made XR compatible");
+                updateStatus("WebGL made XR compatible");
 
                 const xrLayer = new XRWebGLLayer(xrSession, gl);
                 xrSession.updateRenderState({ baseLayer: xrLayer });
 
-                addToStatus("XR layer set up");
+                updateStatus("XR layer set up");
 
                 xrRefSpace = await xrSession.requestReferenceSpace('local');
-                addToStatus("Reference space created");
+                updateStatus("Reference space created");
 
                 // Set up plane detection if supported
                 if (xrSession.detectedPlanes) {
-                    addToStatus("Plane detection available");
+                    updateStatus("Plane detection available");
                     xrSession.addEventListener('planesdetected', onPlanesDetected);
                 } else {
-                    addToStatus("Plane detection not available");
+                    updateStatus("Plane detection not available");
                 }
 
                 xrSession.requestAnimationFrame(onXRFrame);
-                addToStatus("Animation frame requested");
+                updateStatus("Animation frame requested");
 
-                addToStatus("AR session started successfully");
+                updateStatus("AR session started successfully");
                 
                 // Hide UI after session starts
                 document.getElementById('ui-container').style.display = 'none';
 
             } catch (err) {
-                addToStatus(`Failed to start AR session: ${err.message}`);
+                updateStatus(`Failed to start AR session: ${err.message}`);
             }
         });
 
         function onPlanesDetected(event) {
-            addToStatus(`Planes detected: ${event.detectedPlanes.length}`);
+            updateStatus(`Planes detected: ${event.detectedPlanes.length}`);
             event.detectedPlanes.forEach(plane => {
                 const planeData = {
                     orientation: plane.orientation,
@@ -231,12 +227,10 @@
             const glLayer = session.renderState.baseLayer;
             gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
 
-            // Clear with green color to test rendering
-            gl.clearColor(0, 1, 0, 1);
+            gl.clearColor(0, 0, 0, 0);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-            // Test rendering - you should see green background
-            addToStatus(`Frame rendered at: ${time}`);
+            // You can render WebGL content here
         }
     </script>
 </body>
