@@ -74,22 +74,6 @@
             background: rgba(255, 255, 255, 0.1);
             border-radius: 5px;
         }
-
-        #plane-info {
-            margin-top: 15px;
-            max-height: 200px;
-            overflow-y: auto;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 10px;
-            border-radius: 5px;
-        }
-
-        .plane-item {
-            margin-bottom: 10px;
-            padding: 5px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 3px;
-        }
     </style>
 </head>
 
@@ -117,11 +101,6 @@
         <div id="status">
             Status: Ready to start
         </div>
-
-        <div id="plane-info">
-            <h4>immersive-ar not supported on this device/browser</h4>
-            <div id="planes-list"></div>
-        </div>
     </div>
 
     <script>
@@ -135,22 +114,8 @@
             document.getElementById('status').textContent = `Status: ${text}`;
         }
 
-        function updatePlanesList() {
-            const planesList = document.getElementById('planes-list');
-            planesList.innerHTML = '';
-
-            filteredPlanes.forEach((plane, id) => {
-                const planeDiv = document.createElement('div');
-                planeDiv.className = 'plane-item';
-                planeDiv.innerHTML = `
-                    <strong>Plane ${id}</strong><br>
-                    Type: ${plane.orientation}<br>
-                    Width: ${plane.width.toFixed(2)}m<br>
-                    Height: ${plane.height.toFixed(2)}m<br>
-                    Position: (${plane.center.x.toFixed(2)}, ${plane.center.y.toFixed(2)}, ${plane.center.z.toFixed(2)})
-                `;
-                planesList.appendChild(planeDiv);
-            });
+        function addToStatus(text) {
+            document.getElementById('status').textContent = `Status: ${text}`;
         }
 
         function filterPlanes() {
@@ -168,8 +133,6 @@
 
                 filteredPlanes.set(id, plane);
             });
-
-            updatePlanesList();
         }
 
         // Add event listeners for filters
@@ -178,52 +141,72 @@
         document.getElementById('min-length').addEventListener('input', filterPlanes);
 
         document.getElementById('start-ar').addEventListener('click', async () => {
+            addToStatus("Start AR button clicked");
+            
             if (!navigator.xr) {
+                addToStatus("WebXR not supported");
                 return;
             }
 
+            addToStatus("Checking immersive-ar support...");
             const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
+            addToStatus(`immersive-ar supported: ${isSupported}`);
+            
             if (!isSupported) {
+                addToStatus("immersive-ar not supported");
                 return;
             }
 
             try {
-                updateStatus("Starting AR session...");
+                addToStatus("Requesting AR session...");
 
                 xrSession = await navigator.xr.requestSession('immersive-ar', {
-                    requiredFeatures: ['local', 'plane-detection'],
-                    optionalFeatures: ['dom-overlay'],
-                    domOverlay: { root: document.body }
+                    requiredFeatures: ['local'],
+                    optionalFeatures: ['plane-detection', 'dom-overlay']
                 });
+
+                addToStatus("AR session created successfully");
 
                 const canvas = document.createElement('canvas');
                 document.body.appendChild(canvas);
                 gl = canvas.getContext('webgl', { xrCompatible: true });
 
+                addToStatus("WebGL context created");
+
                 await gl.makeXRCompatible();
+                addToStatus("WebGL made XR compatible");
 
                 const xrLayer = new XRWebGLLayer(xrSession, gl);
                 xrSession.updateRenderState({ baseLayer: xrLayer });
 
-                xrRefSpace = await xrSession.requestReferenceSpace('local');
+                addToStatus("XR layer set up");
 
-                // Set up plane detection
-                xrSession.addEventListener('planesdetected', onPlanesDetected);
+                xrRefSpace = await xrSession.requestReferenceSpace('local');
+                addToStatus("Reference space created");
+
+                // Set up plane detection if supported
+                if (xrSession.detectedPlanes) {
+                    addToStatus("Plane detection available");
+                    xrSession.addEventListener('planesdetected', onPlanesDetected);
+                } else {
+                    addToStatus("Plane detection not available");
+                }
 
                 xrSession.requestAnimationFrame(onXRFrame);
+                addToStatus("Animation frame requested");
 
-                updateStatus("AR session active");
+                addToStatus("AR session started successfully");
                 
                 // Hide UI after session starts
                 document.getElementById('ui-container').style.display = 'none';
 
             } catch (err) {
-                console.error(err);
-                updateStatus("Failed to start");
+                addToStatus(`Failed to start AR session: ${err.message}`);
             }
         });
 
         function onPlanesDetected(event) {
+            addToStatus(`Planes detected: ${event.detectedPlanes.length}`);
             event.detectedPlanes.forEach(plane => {
                 const planeData = {
                     orientation: plane.orientation,
@@ -248,10 +231,12 @@
             const glLayer = session.renderState.baseLayer;
             gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
 
-            gl.clearColor(0, 0, 0, 0);
+            // Clear with green color to test rendering
+            gl.clearColor(0, 1, 0, 1);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-            // You can render WebGL content here
+            // Test rendering - you should see green background
+            addToStatus(`Frame rendered at: ${time}`);
         }
     </script>
 </body>
