@@ -3,43 +3,195 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Basic WebXR AR</title>
+    <title>WebXR AR Plane Detection</title>
     <style>
         body,
         html {
             margin: 0;
             padding: 0;
             overflow: hidden;
+            font-family: Arial, sans-serif;
         }
 
         canvas {
             display: block;
         }
+
+        #ui-container {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(50, 50, 50, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 300px;
+        }
+
+        .filter-group {
+            margin-bottom: 15px;
+        }
+
+        .filter-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .filter-group input,
+        .filter-group select {
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 5px;
+            border: none;
+            border-radius: 3px;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        #status {
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+
+        #plane-info {
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .plane-item {
+            margin-bottom: 10px;
+            padding: 5px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
     </style>
 </head>
 
 <body>
-    <button id="start-ar">Start AR</button>
+    <div id="ui-container">
+        <h3>AR Plane Detection</h3>
+        
+        <div class="filter-group">
+            <label>Min Width (m) = X-axis:</label>
+            <input type="number" id="min-width" value="0.5" step="0.1" min="0">
+        </div>
+
+        <div class="filter-group">
+            <label>Min Height (m) = Y-axis:</label>
+            <input type="number" id="min-height" value="0.5" step="0.1" min="0">
+        </div>
+
+        <div class="filter-group">
+            <label>Min Length (m) = Z-axis:</label>
+            <input type="number" id="min-length" value="0.5" step="0.1" min="0">
+        </div>
+
+        <button id="start-ar">Start AR Session</button>
+        
+        <div id="status">
+            Status: Ready to start
+        </div>
+
+        <div id="plane-info">
+            <h4>immersive-ar not supported on this device/browser</h4>
+            <div id="planes-list"></div>
+        </div>
+    </div>
+
     <script>
         let xrSession = null;
         let gl = null;
         let xrRefSpace = null;
+        let detectedPlanes = new Map();
+        let filteredPlanes = new Map();
+
+        function updateStatus(text) {
+            document.getElementById('status').textContent = `Status: ${text}`;
+        }
+
+        function updatePlanesList() {
+            const planesList = document.getElementById('planes-list');
+            planesList.innerHTML = '';
+
+            filteredPlanes.forEach((plane, id) => {
+                const planeDiv = document.createElement('div');
+                planeDiv.className = 'plane-item';
+                planeDiv.innerHTML = `
+                    <strong>Plane ${id}</strong><br>
+                    Type: ${plane.orientation}<br>
+                    Width: ${plane.width.toFixed(2)}m<br>
+                    Height: ${plane.height.toFixed(2)}m<br>
+                    Position: (${plane.center.x.toFixed(2)}, ${plane.center.y.toFixed(2)}, ${plane.center.z.toFixed(2)})
+                `;
+                planesList.appendChild(planeDiv);
+            });
+        }
+
+        function filterPlanes() {
+            const minWidth = parseFloat(document.getElementById('min-width').value);
+            const minHeight = parseFloat(document.getElementById('min-height').value);
+            const minLength = parseFloat(document.getElementById('min-length').value);
+
+            filteredPlanes.clear();
+
+            detectedPlanes.forEach((plane, id) => {
+                // Size filter
+                if (plane.width < minWidth || plane.height < minHeight || plane.center.z < minLength) {
+                    return;
+                }
+
+                filteredPlanes.set(id, plane);
+            });
+
+            updatePlanesList();
+        }
+
+        // Add event listeners for filters
+        document.getElementById('min-width').addEventListener('input', filterPlanes);
+        document.getElementById('min-height').addEventListener('input', filterPlanes);
+        document.getElementById('min-length').addEventListener('input', filterPlanes);
 
         document.getElementById('start-ar').addEventListener('click', async () => {
             if (!navigator.xr) {
-                alert("WebXR not supported");
                 return;
             }
 
             const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
             if (!isSupported) {
-                alert("immersive-ar not supported on this device/browser");
                 return;
             }
 
             try {
+                updateStatus("Starting AR session...");
+
                 xrSession = await navigator.xr.requestSession('immersive-ar', {
-                    requiredFeatures: ['local'],
+                    requiredFeatures: ['local', 'plane-detection'],
                     optionalFeatures: ['dom-overlay'],
                     domOverlay: { root: document.body }
                 });
@@ -55,13 +207,36 @@
 
                 xrRefSpace = await xrSession.requestReferenceSpace('local');
 
+                // Set up plane detection
+                xrSession.addEventListener('planesdetected', onPlanesDetected);
+
                 xrSession.requestAnimationFrame(onXRFrame);
+
+                updateStatus("AR session active");
+                
+                // Hide UI after session starts
+                document.getElementById('ui-container').style.display = 'none';
 
             } catch (err) {
                 console.error(err);
-                alert("Failed to start AR session");
+                updateStatus("Failed to start");
             }
         });
+
+        function onPlanesDetected(event) {
+            event.detectedPlanes.forEach(plane => {
+                const planeData = {
+                    orientation: plane.orientation,
+                    width: plane.width,
+                    height: plane.height,
+                    center: plane.center,
+                    polygon: plane.polygon
+                };
+                detectedPlanes.set(plane.uuid, planeData);
+            });
+
+            filterPlanes();
+        }
 
         function onXRFrame(time, frame) {
             let session = frame.session;
