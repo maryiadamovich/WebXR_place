@@ -27,6 +27,9 @@
             padding: 20px;
             border-radius: 10px;
             max-width: 300px;
+            width: calc(100vw - 40px);
+            max-width: 350px;
+            box-sizing: border-box;
         }
 
         .filter-group {
@@ -37,26 +40,32 @@
             display: block;
             margin-bottom: 5px;
             font-weight: bold;
+            font-size: 14px;
         }
 
         .filter-group input,
         .filter-group select {
             width: 100%;
-            padding: 5px;
+            padding: 8px;
             margin-bottom: 5px;
             border: none;
             border-radius: 3px;
+            font-size: 14px;
+            box-sizing: border-box;
         }
 
         button {
             background: #007bff;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 12px 20px;
             border-radius: 5px;
             cursor: pointer;
             margin-right: 10px;
             margin-bottom: 10px;
+            font-size: 14px;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         button:hover {
@@ -73,6 +82,108 @@
             padding: 10px;
             background: rgba(255, 255, 255, 0.1);
             border-radius: 5px;
+            font-size: 14px;
+            word-wrap: break-word;
+        }
+
+        /* Мобильные устройства */
+        @media (max-width: 768px) {
+            #ui-container {
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                width: calc(100vw - 20px);
+                max-width: none;
+                padding: 15px;
+            }
+
+            .filter-group label {
+                font-size: 13px;
+            }
+
+            .filter-group input,
+            .filter-group select {
+                padding: 10px;
+                font-size: 16px; /* Предотвращает зум на iOS */
+            }
+
+            button {
+                padding: 15px 20px;
+                font-size: 16px;
+                margin-bottom: 15px;
+            }
+
+            #status {
+                font-size: 13px;
+                padding: 12px;
+            }
+        }
+
+        /* Планшеты */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            #ui-container {
+                max-width: 400px;
+                padding: 25px;
+            }
+
+            .filter-group label {
+                font-size: 15px;
+            }
+
+            .filter-group input,
+            .filter-group select {
+                padding: 10px;
+                font-size: 15px;
+            }
+
+            button {
+                padding: 14px 24px;
+                font-size: 15px;
+            }
+        }
+
+        /* Большие экраны */
+        @media (min-width: 1025px) {
+            #ui-container {
+                max-width: 400px;
+                padding: 30px;
+            }
+
+            .filter-group label {
+                font-size: 16px;
+            }
+
+            .filter-group input,
+            .filter-group select {
+                padding: 12px;
+                font-size: 16px;
+            }
+
+            button {
+                padding: 16px 28px;
+                font-size: 16px;
+            }
+        }
+
+        /* Портретная ориентация на мобильных */
+        @media (max-width: 768px) and (orientation: portrait) {
+            #ui-container {
+                top: 5px;
+                left: 5px;
+                right: 5px;
+                width: calc(100vw - 10px);
+                padding: 12px;
+            }
+        }
+
+        /* Ландшафтная ориентация на мобильных */
+        @media (max-width: 768px) and (orientation: landscape) {
+            #ui-container {
+                top: 5px;
+                left: 5px;
+                width: 300px;
+                max-width: 300px;
+            }
         }
     </style>
 </head>
@@ -179,8 +290,9 @@
 
                 xrSession.requestAnimationFrame(onXRFrame);
                 
-                // Hide UI after session starts
+                // Hide UI and status after session starts
                 document.getElementById('ui-container').style.display = 'none';
+                document.getElementById('status').style.display = 'none';
 
             } catch (err) {
                 updateStatus(`Failed to start AR session: ${err.message}`);
