@@ -288,8 +288,6 @@
                 // Set up plane detection if supported
                 if (xrSession.detectedPlanes) {
                     xrSession.addEventListener('planesdetected', onPlanesDetected);
-                } else {
-                    updateStatus("Plane detection not available");
                 }
 
                 xrSession.requestAnimationFrame(onXRFrame);
@@ -305,7 +303,6 @@
         });
 
         function onPlanesDetected(event) {
-            updateStatus(`Planes detected: ${event.detectedPlanes.length}`);
             event.detectedPlanes.forEach(plane => {
                 const planeData = {
                     orientation: plane.orientation,
