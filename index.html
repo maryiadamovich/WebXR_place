@@ -220,8 +220,12 @@
         let xrRefSpace = null;
         let detectedPlanes = new Map();
         let filteredPlanes = new Map();
+        let uiHidden = false; // Флаг для отслеживания состояния UI
 
         function updateStatus(text) {
+            // Не обновлять статус, если UI скрыт
+            if (uiHidden) return;
+            
             document.getElementById('status').textContent = `Status: ${text}`;
         }
 
@@ -293,6 +297,7 @@
                 // Hide UI and status after session starts
                 document.getElementById('ui-container').style.display = 'none';
                 document.getElementById('status').style.display = 'none';
+                uiHidden = true; // Устанавливаем флаг, что UI скрыт
 
             } catch (err) {
                 updateStatus(`Failed to start AR session: ${err.message}`);
