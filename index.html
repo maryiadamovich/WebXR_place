@@ -223,10 +223,13 @@
         let uiHidden = false; // Флаг для отслеживания состояния UI
 
         function updateStatus(text) {
-            // Не обновлять статус, если UI скрыт
+            // Не обновлять статус, если UI скрыт или элемент удален
             if (uiHidden) return;
             
-            document.getElementById('status').textContent = `Status: ${text}`;
+            const statusElement = document.getElementById('status');
+            if (statusElement) {
+                statusElement.textContent = `Status: ${text}`;
+            }
         }
 
         function filterPlanes() {
@@ -294,9 +297,11 @@
 
                 xrSession.requestAnimationFrame(onXRFrame);
                 
-                // Hide UI and status after session starts
-                document.getElementById('ui-container').style.setProperty('display', 'none', 'important');
-                document.getElementById('status').style.setProperty('display', 'none', 'important');
+                // Completely remove UI and status elements from DOM
+                const uiContainer = document.getElementById('ui-container');
+                const statusElement = document.getElementById('status');
+                if (uiContainer) uiContainer.remove();
+                if (statusElement) statusElement.remove();
                 
                 // Убедимся, что canvas не перекрывает UI
                 const existingCanvas = document.querySelector('canvas');
