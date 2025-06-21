@@ -256,6 +256,8 @@
 
         document.getElementById('start-ar').addEventListener('click', async () => {
             
+            uiHidden = true;
+            
             if (!navigator.xr) {
                 updateStatus("WebXR not supported");
                 return;
@@ -295,7 +297,6 @@
                 // Hide UI and status after session starts
                 document.getElementById('ui-container').style.display = 'none';
                 document.getElementById('status').style.display = 'none';
-                uiHidden = true; // Устанавливаем флаг, что UI скрыт
 
             } catch (err) {
                 updateStatus(`Failed to start AR session: ${err.message}`);
