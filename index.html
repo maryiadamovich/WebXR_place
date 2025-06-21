@@ -115,6 +115,9 @@
         }
 
         function filterPlanes() {
+            // Не фильтровать плоскости, если сессия не активна
+            if (!xrSession) return;
+            
             const minWidth = parseFloat(document.getElementById('min-width').value);
             const minHeight = parseFloat(document.getElementById('min-height').value);
             const minLength = parseFloat(document.getElementById('min-length').value);
@@ -132,21 +135,18 @@
         }
 
         // Add event listeners for filters
-        document.getElementById('min-width').addEventListener('input', filterPlanes);
-        document.getElementById('min-height').addEventListener('input', filterPlanes);
-        document.getElementById('min-length').addEventListener('input', filterPlanes);
+        document.getElementById('min-width').addEventListener('change', filterPlanes);
+        document.getElementById('min-height').addEventListener('change', filterPlanes);
+        document.getElementById('min-length').addEventListener('change', filterPlanes);
 
         document.getElementById('start-ar').addEventListener('click', async () => {
-            updateStatus("Start AR button clicked");
             
             if (!navigator.xr) {
                 updateStatus("WebXR not supported");
                 return;
             }
 
-            updateStatus("Checking immersive-ar support...");
             const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
-            updateStatus(`immersive-ar supported: ${isSupported}`);
             
             if (!isSupported) {
                 updateStatus("immersive-ar not supported");
@@ -154,44 +154,30 @@
             }
 
             try {
-                updateStatus("Requesting AR session...");
-
                 xrSession = await navigator.xr.requestSession('immersive-ar', {
                     requiredFeatures: ['local'],
                     optionalFeatures: ['plane-detection', 'dom-overlay']
                 });
 
-                updateStatus("AR session created successfully");
-
                 const canvas = document.createElement('canvas');
                 document.body.appendChild(canvas);
                 gl = canvas.getContext('webgl', { xrCompatible: true });
 
-                updateStatus("WebGL context created");
-
                 await gl.makeXRCompatible();
-                updateStatus("WebGL made XR compatible");
 
                 const xrLayer = new XRWebGLLayer(xrSession, gl);
                 xrSession.updateRenderState({ baseLayer: xrLayer });
 
-                updateStatus("XR layer set up");
-
                 xrRefSpace = await xrSession.requestReferenceSpace('local');
-                updateStatus("Reference space created");
 
                 // Set up plane detection if supported
                 if (xrSession.detectedPlanes) {
-                    updateStatus("Plane detection available");
                     xrSession.addEventListener('planesdetected', onPlanesDetected);
                 } else {
                     updateStatus("Plane detection not available");
                 }
 
                 xrSession.requestAnimationFrame(onXRFrame);
-                updateStatus("Animation frame requested");
-
-                updateStatus("AR session started successfully");
                 
                 // Hide UI after session starts
                 document.getElementById('ui-container').style.display = 'none';
