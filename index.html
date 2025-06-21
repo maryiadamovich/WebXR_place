@@ -21,7 +21,7 @@
             position: fixed;
             top: 20px;
             left: 20px;
-            z-index: 1000;
+            z-index: 9999;
             background: rgba(50, 50, 50, 0.8);
             color: white;
             padding: 20px;
@@ -295,8 +295,19 @@
                 xrSession.requestAnimationFrame(onXRFrame);
                 
                 // Hide UI and status after session starts
-                document.getElementById('ui-container').style.display = 'none';
-                document.getElementById('status').style.display = 'none';
+                document.getElementById('ui-container').style.setProperty('display', 'none', 'important');
+                document.getElementById('status').style.setProperty('display', 'none', 'important');
+                
+                // Убедимся, что canvas не перекрывает UI
+                const existingCanvas = document.querySelector('canvas');
+                if (existingCanvas) {
+                    existingCanvas.style.position = 'fixed';
+                    existingCanvas.style.top = '0';
+                    existingCanvas.style.left = '0';
+                    existingCanvas.style.width = '100%';
+                    existingCanvas.style.height = '100%';
+                    existingCanvas.style.zIndex = '1';
+                }
 
             } catch (err) {
                 updateStatus(`Failed to start AR session: ${err.message}`);
